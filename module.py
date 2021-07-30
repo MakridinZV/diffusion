@@ -1,6 +1,7 @@
 from typing import Callable
 from typing import Tuple
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def step_function(x: float, step_coordinate: float = 0, value_1: float = 0, value_2: float = 1) -> float:
@@ -25,16 +26,36 @@ def step_function(x: float, step_coordinate: float = 0, value_1: float = 0, valu
     return value_1 if x < step_coordinate else value_2
 
 
-def solve(
-    initial_data_func: Callable[[float], float],  # This is signature of function that accept float value and returns float value.
-    L: float,
-    T: float,
+def sweep(
+    F: float,
     Nx: int,
-    Nt: int,
+    b: np.ndarray
+) -> np.ndarray:
+    A = np.zeros((Nx + 1, Nx + 1))   # matrix for the linear system solving
+    u = np.zeros(Nx + 1)
+
+    for i in range(1, Nx):
+        A[i, i - 1] = - F
+        A[i, i + 1] = - F
+        A[i, i] = 1 + 2 * F
+
+    A[0, 0] = A[Nx, Nx] = 1 + 2 * F
+    A[0, 1] = A[Nx, Nx - 1] = -2 * F
+
+    u[:] = np.linalg.solve(A, b)
+
+    return u 
+    
+
+def solve(
+#    initial_data_func: Callable[[float], float],  # This is signature of function that accept float value and returns float value.
+    L: float,
+    F: float,
+    dt: float,
     D: float,
-    K: float,
-    coefficients: Tuple[float, float, float],  # Simply pass coefficients to function as (k1, k2, k3).
+    coefficients: Tuple[float, float, float, float],  # Simply pass coefficients to function as (k1, k2, k3, k4).
     u0: float,
+    un: np.ndarray,
 ) -> np.ndarray:
     """Solver for equation ....
 
@@ -64,16 +85,17 @@ def solve(
     np.ndarray
     """
 
-    k3, k4, k5 = coefficients  # Unpack tuple.
+    k3, k4, k5, K = coefficients  # Unpack tuple.
 
-    x = np.linspace(0, L, Nx + 1)    # mesh points in space interval [0, L]
-    h = x[1] - x[0]                  # step size in space
-    t = np.linspace(0, T, Nt + 1)    # mesh points in time interval [0, T]
-    tau = t[1] - t[0]                # step size in time
+
+    dx = np.sqrt(D * dt / F)               # step size in space
+    Nx = int(round(L / dx))                # amount of nodes in space 
+#    x = np.linspace(0, L, Nx + 1)          # mesh points in space interval [0, L]
+
     u = np.zeros(Nx + 1)             # current time layer function values
-    un = np.zeros(Nx + 1)            # previous time layer function values
+    
 
-    A = np.zeros((Nx + 1, Nx + 1))   # matrix for the linear system solving
+    
     b = np.zeros(Nx + 1)             # right hand side of the linear system
 
     # equation to be solved:    U_{t} = D U_{xx} + (k_3 U + k_4 U^2 + k_5 U^3)(U_0 - U) - K U, where K, D, k_i, U_0 are constants.
@@ -81,7 +103,7 @@ def solve(
     # initial condition:        U(x, 0) = HeavisideFunction(l - x).
 
     for i in range(0, Nx + 1):
-        un[i] = u0 * initial_data_func(0.1 - x[i])
+        b[i] = un[i] - dt * K * un[i] + dt * (k3 * un[i] + k4 * un[i] ** 2 + k5 * un[i] ** 3) * (u0 - un[i])
 
     # numerical scheme:         U^{n+1}_{j} (1 + 2 D tau / h^2) - U^{n+1}_{j-1} D tau / h^2 - U^{n+1}_{j+1} D tau / h^2 = 
     #                                                                           U^{n}_{j} - tau K U^{n}_{j} 
@@ -97,20 +119,37 @@ def solve(
     #                           for j = Nx:  U^{n+1}_{Nx} (1 + 2 D tau / h^2) - U^{n+1}_{Nx-1} D tau / h^2 - U^{n+1}_{Nx-1} D tau / h^2 = 
     #                                                                           U^{n}_{Nx} - tau K U^{n}_{Nx} 
     #                                                                         + tau (k_3 U^{n}_{Nx} + k_4 (U^2)^{n}_{Nx} + k_5 (U^3)^{n}_{Nx})(U_0 - U^{n}_{Nx})       
-    for i in range(1, Nx):
-        A[i, i - 1] = -D * tau / h ** 2
-        A[i, i + 1] = -D * tau / h ** 2
-        A[i, i] = 1 + 2 * (D * tau / h ** 2)
+    u = sweep(F, Nx, b)
 
-    A[0, 0] = A[Nx, Nx] = 1 + 2 * (D * tau / h ** 2)
-    A[0, 1] = A[Nx, Nx - 1] = -2 * (D * tau / h ** 2)
+    return u
+
+
+
+def graph(
+    initial_data_func: Callable[[float], float],  # This is signature of function that accept float value and returns float value.
+    T: float,
+    L: float,
+    F: float,
+    dt: float,
+    D: float,
+    coefficients: Tuple[float, float, float, float],  # Simply pass coefficients to function as (k1, k2, k3, k4).
+    u0: float,
+    un: np.ndarray,
+):     
+    Nt = int(round(T / dt))   
+    t = np.linspace(0, T, Nt + 1)
+    dx = np.sqrt(D * dt / F)               # step size in space
+    Nx = int(round(L / dx)) 
+    x = np.linspace(0, L, Nx + 1)               # amount of nodes in space 
+    u = np.zeros(Nx + 1)
+    un = np.zeros(Nx + 1)
+
+    for i in range(0, Nx + 1):
+        un[i] = u0 * initial_data_func(0.1 - x[i])
 
     for _ in range(0, Nt):  # You don't use n, replace it by placeholder `_`.
-        for i in range(0, Nx + 1):
-            b[i] = un[i] - tau * K * un[i] + tau * (k3 * un[i] + k4 * un[i] ** 2 + k5 * un[i] ** 3) * (u0 - un[i])
-
-        u[:] = np.linalg.solve(A, b)
-
-        # Switch variables before next step
-        un, u = u, un
-    return u
+        u = solve(L, F, dt, D, coefficients, u0, un)
+        un[:] = u
+        plt.plot(u)
+    
+    return 0
