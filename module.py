@@ -133,8 +133,7 @@ def graph(
     dt: float,
     D: float,
     coefficients: Tuple[float, float, float, float],  # Simply pass coefficients to function as (k1, k2, k3, k4).
-    u0: float,
-    un: np.ndarray,
+    u0: float
 ):     
     Nt = int(round(T / dt))   
     t = np.linspace(0, T, Nt + 1)
@@ -151,5 +150,4 @@ def graph(
         u = solve(L, F, dt, D, coefficients, u0, un)
         un[:] = u
         plt.plot(u)
-    
-    return 0
+
