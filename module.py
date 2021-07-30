@@ -3,6 +3,24 @@ from typing import Tuple
 import numpy as np
 import matplotlib.pyplot as plt
 
+# equation to be solved:    U_{t} = D U_{xx} + (k_3 U + k_4 U^2 + k_5 U^3)(U_0 - U) - K U, where K, D, k_i, U_0 are constants.
+# boundary conditions:      U_x = 0, (x = 0);  U_x = 0 (x = L).
+# initial condition:        U(x, 0) = HeavisideFunction(l - x).
+
+# numerical scheme:         U^{n+1}_{j} (1 + 2 D tau / h^2) - U^{n+1}_{j-1} D tau / h^2 - U^{n+1}_{j+1} D tau / h^2 = 
+#                                                                           U^{n}_{j} - tau K U^{n}_{j} 
+#                                                                         + tau (k_3 U^{n}_{j} + k_4 (U^2)^{n}_{j} + k_5 (U^3)^{n}_{j})(U_0 - U^{n}_{j})
+#                           for j=1, 2, ..., Nx-1.
+#  
+# boundary conditions:      U^{n+1}_1 = U^{n+1}_{-1},   U^{n+1}_{Nx+1} = U^{n+1}_{Nx-1}, then
+#                           
+#                           for j = 0:   U^{n+1}_{0} (1 + 2 D tau / h^2) - U^{n+1}_{1} D tau / h^2 - U^{n+1}_{1} D tau / h^2 = 
+#                                                                           U^{n}_{0} - tau K U^{n}_{0} 
+#                                                                         + tau (k_3 U^{n}_{0} + k_4 (U^2)^{n}_{0} + k_5 (U^3)^{n}_{0})(U_0 - U^{n}_{0})
+#
+#                           for j = Nx:  U^{n+1}_{Nx} (1 + 2 D tau / h^2) - U^{n+1}_{Nx-1} D tau / h^2 - U^{n+1}_{Nx-1} D tau / h^2 = 
+#                                                                           U^{n}_{Nx} - tau K U^{n}_{Nx} 
+#                                                                         + tau (k_3 U^{n}_{Nx} + k_4 (U^2)^{n}_{Nx} + k_5 (U^3)^{n}_{Nx})(U_0 - U^{n}_{Nx})   
 
 def step_function(x: float, step_coordinate: float = 0, value_1: float = 0, value_2: float = 1) -> float:
     """Simple step function.
@@ -48,7 +66,6 @@ def sweep(
     
 
 def solve(
-#    initial_data_func: Callable[[float], float],  # This is signature of function that accept float value and returns float value.
     L: float,
     F: float,
     dt: float,
@@ -65,60 +82,36 @@ def solve(
         Function for generation initial data.
     L : float
         L
-    T : float
+    F : float
         T
-    Nx : int
-        Nx
-    Nt : int
-        Nt
+    dt : float
+        dt
     D : float
         D
-    K : float
-        K
-    coefficients : Tuple[float, float, float]
+    coefficients : Tuple[float, float, float, float]
         Coefficients of ...
     u0 : float
         u0
+    un : np.ndarray
+        un
 
     Returns
     -------
     np.ndarray
     """
 
-    k3, k4, k5, K = coefficients  # Unpack tuple.
+    k3, k4, k5, K = coefficients                     # Unpack tuple.
 
 
-    dx = np.sqrt(D * dt / F)               # step size in space
-    Nx = int(round(L / dx))                # amount of nodes in space 
-#    x = np.linspace(0, L, Nx + 1)          # mesh points in space interval [0, L]
+    dx = np.sqrt(D * dt / F)                         # step size in space
+    Nx = int(round(L / dx))                          # amount of nodes in space 
 
-    u = np.zeros(Nx + 1)             # current time layer function values
-    
-
-    
-    b = np.zeros(Nx + 1)             # right hand side of the linear system
-
-    # equation to be solved:    U_{t} = D U_{xx} + (k_3 U + k_4 U^2 + k_5 U^3)(U_0 - U) - K U, where K, D, k_i, U_0 are constants.
-    # boundary conditions:      U_x = 0, (x = 0);  U_x = 0 (x = L).
-    # initial condition:        U(x, 0) = HeavisideFunction(l - x).
+    u = np.zeros(Nx + 1)                             # current time layer function values
+    b = np.zeros(Nx + 1)                             # right hand side of the linear system
 
     for i in range(0, Nx + 1):
         b[i] = un[i] - dt * K * un[i] + dt * (k3 * un[i] + k4 * un[i] ** 2 + k5 * un[i] ** 3) * (u0 - un[i])
-
-    # numerical scheme:         U^{n+1}_{j} (1 + 2 D tau / h^2) - U^{n+1}_{j-1} D tau / h^2 - U^{n+1}_{j+1} D tau / h^2 = 
-    #                                                                           U^{n}_{j} - tau K U^{n}_{j} 
-    #                                                                         + tau (k_3 U^{n}_{j} + k_4 (U^2)^{n}_{j} + k_5 (U^3)^{n}_{j})(U_0 - U^{n}_{j})
-    #                           for j=1, 2, ..., Nx-1.
-    #  
-    # boundary conditions:      U^{n+1}_1 = U^{n+1}_{-1},   U^{n+1}_{Nx+1} = U^{n+1}_{Nx-1}, then
-    #                           
-    #                           for j = 0:   U^{n+1}_{0} (1 + 2 D tau / h^2) - U^{n+1}_{1} D tau / h^2 - U^{n+1}_{1} D tau / h^2 = 
-    #                                                                           U^{n}_{0} - tau K U^{n}_{0} 
-    #                                                                         + tau (k_3 U^{n}_{0} + k_4 (U^2)^{n}_{0} + k_5 (U^3)^{n}_{0})(U_0 - U^{n}_{0})
-    #
-    #                           for j = Nx:  U^{n+1}_{Nx} (1 + 2 D tau / h^2) - U^{n+1}_{Nx-1} D tau / h^2 - U^{n+1}_{Nx-1} D tau / h^2 = 
-    #                                                                           U^{n}_{Nx} - tau K U^{n}_{Nx} 
-    #                                                                         + tau (k_3 U^{n}_{Nx} + k_4 (U^2)^{n}_{Nx} + k_5 (U^3)^{n}_{Nx})(U_0 - U^{n}_{Nx})       
+    
     u = sweep(F, Nx, b)
 
     return u
@@ -126,7 +119,7 @@ def solve(
 
 
 def graph(
-    initial_data_func: Callable[[float], float],  # This is signature of function that accept float value and returns float value.
+    initial_data_func: Callable[[float], float],      # This is signature of function that accept float value and returns float value.
     T: float,
     L: float,
     F: float,
@@ -137,17 +130,18 @@ def graph(
 ):     
     Nt = int(round(T / dt))   
     t = np.linspace(0, T, Nt + 1)
-    dx = np.sqrt(D * dt / F)               # step size in space
+    dx = np.sqrt(D * dt / F)                          # step size in space
     Nx = int(round(L / dx)) 
-    x = np.linspace(0, L, Nx + 1)               # amount of nodes in space 
+    x = np.linspace(0, L, Nx + 1)           
     u = np.zeros(Nx + 1)
     un = np.zeros(Nx + 1)
 
     for i in range(0, Nx + 1):
         un[i] = u0 * initial_data_func(0.1 - x[i])
 
-    for _ in range(0, Nt):  # You don't use n, replace it by placeholder `_`.
+    for n in range(0, Nt):                           # You don't use n, replace it by placeholder `_`.
         u = solve(L, F, dt, D, coefficients, u0, un)
         un[:] = u
-        plt.plot(u)
+        
+    plt.plot(u)
 
