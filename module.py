@@ -3,25 +3,6 @@ from typing import Tuple
 import numpy as np
 import matplotlib.pyplot as plt
 
-# equation to be solved:    U_{t} = D U_{xx} + (k_3 U + k_4 U^2 + k_5 U^3)(U_0 - U) - K U, where K, D, k_i, U_0 are constants.
-# boundary conditions:      U_x = 0, (x = 0);  U_x = 0 (x = L).
-# initial condition:        U(x, 0) = HeavisideFunction(l - x).
-
-# numerical scheme:         U^{n+1}_{j} (1 + 2 D tau / h^2) - U^{n+1}_{j-1} D tau / h^2 - U^{n+1}_{j+1} D tau / h^2 = 
-#                                                                           U^{n}_{j} - tau K U^{n}_{j} 
-#                                                                         + tau (k_3 U^{n}_{j} + k_4 (U^2)^{n}_{j} + k_5 (U^3)^{n}_{j})(U_0 - U^{n}_{j})
-#                           for j=1, 2, ..., Nx-1.
-#  
-# boundary conditions:      U^{n+1}_1 = U^{n+1}_{-1},   U^{n+1}_{Nx+1} = U^{n+1}_{Nx-1}, then
-#                           
-#                           for j = 0:   U^{n+1}_{0} (1 + 2 D tau / h^2) - U^{n+1}_{1} D tau / h^2 - U^{n+1}_{1} D tau / h^2 = 
-#                                                                           U^{n}_{0} - tau K U^{n}_{0} 
-#                                                                         + tau (k_3 U^{n}_{0} + k_4 (U^2)^{n}_{0} + k_5 (U^3)^{n}_{0})(U_0 - U^{n}_{0})
-#
-#                           for j = Nx:  U^{n+1}_{Nx} (1 + 2 D tau / h^2) - U^{n+1}_{Nx-1} D tau / h^2 - U^{n+1}_{Nx-1} D tau / h^2 = 
-#                                                                           U^{n}_{Nx} - tau K U^{n}_{Nx} 
-#                                                                         + tau (k_3 U^{n}_{Nx} + k_4 (U^2)^{n}_{Nx} + k_5 (U^3)^{n}_{Nx})(U_0 - U^{n}_{Nx})   
-
 def step_function(x: float, step_coordinate: float = 0, value_1: float = 0, value_2: float = 1) -> float:
     """Simple step function.
 
@@ -117,9 +98,10 @@ def solve(
     Nx = int(round(L / dx))                          # amount of nodes in space 
 
     
-    p = np.zeros(Nx + 1)
-    v = np.zeros(Nx + 1)
+    p = np.zeros(Nx + 1)                             # current time layer function values 
+    v = np.zeros(Nx + 1)                             # current time layer function values 
     u = np.zeros(Nx + 1)                             # current time layer function values
+
     bu = np.zeros(Nx + 1)
     bp = np.zeros(Nx + 1)
     bv = np.zeros(Nx + 1)                             # right hand side of the linear system
@@ -144,7 +126,7 @@ def graph(
     F: float,
     dt: float,
     D: float,
-    coefficients: Tuple[float, float, float, float, float, float, float, float, float],  # Simply pass coefficients to function as (k1, k2, k3, k4).
+    coefficients: Tuple[float, float, float, float, float, float, float, float, float],  # Simply pass coefficients to function as (k1, ..., k9).
     p0: float,
     u0: float,
 ):     
@@ -152,20 +134,22 @@ def graph(
     t = np.linspace(0, T, Nt + 1)
     dx = np.sqrt(D * dt / F)                          # step size in space
     Nx = int(round(L / dx)) 
-    x = np.linspace(0, L, Nx + 1)           
-    p = np.zeros(Nx + 1)
-    v = np.zeros(Nx + 1)
+    x = np.linspace(0, L, Nx + 1)          
+
+    p = np.zeros(Nx + 1)                             # current time layer function values 
+    v = np.zeros(Nx + 1)                             # current time layer function values
     u = np.zeros(Nx + 1)                             # current time layer function values
-    pn = np.zeros(Nx + 1)
-    vn = np.zeros(Nx + 1)
-    un = np.zeros(Nx + 1)
+
+    pn = np.zeros(Nx + 1)                            # previous time layer function values
+    vn = np.zeros(Nx + 1)                            # previous time layer function values 
+    un = np.zeros(Nx + 1)                            # previous time layer function values  
 
     for i in range(0, Nx + 1):
         pn[i] = p0
         vn[i] = p0 * initial_data_func(0.1 - x[i])
         un[i] = 0
 
-    for n in range(0, Nt):                           # You don't use n, replace it by placeholder `_`.
+    for _ in range(0, Nt):                           # You don't use n, replace it by placeholder `_`.
         p, u, v = solve(L, F, dt, D, coefficients, u0, pn, un, vn)
         un[:] = u
         vn[:] = v
