@@ -28,9 +28,9 @@ def step_function(x: float, step_coordinate: float = 0, value_1: float = 0, valu
 def sweep(
     F: float,
     Nx: int,
-    b: np.ndarray
+    b: np.ndarray,
 ) -> np.ndarray:
-    A = np.zeros((Nx + 1, Nx + 1))   # matrix for the linear system solving
+    A = np.zeros((Nx + 1, Nx + 1))  # matrix for the linear system solving (add EXACTLY TWO spaces before #)
     u = np.zeros(Nx + 1)
 
     for i in range(1, Nx):
@@ -42,21 +42,20 @@ def sweep(
     A[0, 1] = A[Nx, Nx - 1] = -2 * F
 
     u[:] = np.linalg.solve(A, b)
+    return u
 
-    return u 
-    
 
 def solve(
     L: float,
     F: float,
     dt: float,
     D: float,
-    coefficients: Tuple[float, float, float, float, float, float, float, float, float],  # Simply pass coefficients to function as (k1, k2, k3, k4).
+    coefficients: Tuple[float, ...],  # Simply pass coefficients to function as (k1, k2, k3, k4).
     u0: float,
     pn: np.ndarray,
     vn: np.ndarray,
     un: np.ndarray,
-) -> np.ndarray:
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Solver for equation ....
 
     Parameters
@@ -71,7 +70,7 @@ def solve(
         dt
     D : float
         D
-    coefficients : Tuple[float, float, float, float, float, float, float, float, float]
+    coefficients : Tuple[float, ...]
         Coefficients of ...
     u0 : float
         u0
@@ -88,76 +87,69 @@ def solve(
 
     Returns
     -------
-    np.ndarray
+    Tuple[np.ndarray, np.ndarray, np.ndarray]
     """
+    dx = np.sqrt(D * dt / F)  # step size in space
+    Nx = int(round(L / dx))  # amount of nodes in space
 
-    k1, k2, k3, k4, k5, k6, k7, k8, k9 = coefficients                     # Unpack tuple.
+    # p, v, u are current time layer function values
+    # bp, bv, bu are previous time layer function values
+    p, v, u, bp, bv, bu = [np.zeros(Nx + 1) for _ in range(6)]
 
-
-    dx = np.sqrt(D * dt / F)                         # step size in space
-    Nx = int(round(L / dx))                          # amount of nodes in space 
-
-    
-    p = np.zeros(Nx + 1)                             # current time layer function values 
-    v = np.zeros(Nx + 1)                             # current time layer function values 
-    u = np.zeros(Nx + 1)                             # current time layer function values
-
-    bu = np.zeros(Nx + 1)
-    bp = np.zeros(Nx + 1)
-    bv = np.zeros(Nx + 1)                             # right hand side of the linear system
-
+    k1, k2, k3, k4, k5, k6, k7, k8, k9 = coefficients  # Unpack tuple.
     for i in range(0, Nx + 1):
         bu[i] = un[i] - dt * k4 * un[i] + dt * (k1 + k2 * vn[i] + k3 * vn[i] ** 2) * (u0 - un[i])
         bv[i] = vn[i] - dt * k9 * vn[i] + dt * (k5 * un[i] + k6 * vn[i] + k7 * vn[i] ** 2 + k8 * vn[i] ** 3) * pn[i]
         bp[i] = pn[i] - dt * (k5 * un[i] + k6 * vn[i] + k7 * vn[i] ** 2 + k8 * vn[i] ** 3) * pn[i]
-    
+
     p = sweep(F, Nx, bp)
     v = sweep(F, Nx, bv)
     u = sweep(F, Nx, bu)
-
     return p, u, v
 
 
-
 def graph(
-    initial_data_func: Callable[[float], float],      # This is signature of function that accept float value and returns float value.
+    initial_data_func: Callable[[float], float],
     T: float,
     L: float,
     F: float,
     dt: float,
     D: float,
-    coefficients: Tuple[float, float, float, float, float, float, float, float, float],  # Simply pass coefficients to function as (k1, ..., k9).
+    coefficients: Tuple[float, ...],
     p0: float,
     u0: float,
-):     
-    Nt = int(round(T / dt))   
-    t = np.linspace(0, T, Nt + 1)
-    dx = np.sqrt(D * dt / F)                          # step size in space
-    Nx = int(round(L / dx)) 
-    x = np.linspace(0, L, Nx + 1)          
+):
+    Nt = int(round(T / dt))
+    dx = np.sqrt(D * dt / F)  # step size in space
+    Nx = int(round(L / dx))
+    x = np.linspace(0, L, Nx + 1)
 
-    p = np.zeros(Nx + 1)                             # current time layer function values 
-    v = np.zeros(Nx + 1)                             # current time layer function values
-    u = np.zeros(Nx + 1)                             # current time layer function values
-
-    pn = np.zeros(Nx + 1)                            # previous time layer function values
-    vn = np.zeros(Nx + 1)                            # previous time layer function values 
-    un = np.zeros(Nx + 1)                            # previous time layer function values  
+    # p, v, u are current time layer function values
+    # pn, vn, un are previous time layer function values
+    p, v, u, pn, vn, un = [np.zeros(Nx + 1) for _ in range(6)]
 
     for i in range(0, Nx + 1):
         pn[i] = p0
         vn[i] = p0 * initial_data_func(0.1 - x[i])
         un[i] = 0
 
-    for _ in range(0, Nt):                           # You don't use n, replace it by placeholder `_`.
-        p, u, v = solve(L, F, dt, D, coefficients, u0, pn, un, vn)
+    for _ in range(0, Nt):
+        p, u, v = solve(
+            L=L,
+            F=F,
+            dt=dt,
+            D=D,
+            coefficients=coefficients,
+            u0=u0,
+            pn=pn,
+            un=un,
+            vn=vn,
+        )
         un[:] = u
         vn[:] = v
         pn[:] = p
 
-        
     # plt.plot(p)
     # plt.plot(u)
     plt.plot(v)
     print(dx)
-
