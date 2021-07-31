@@ -70,8 +70,10 @@ def solve(
     F: float,
     dt: float,
     D: float,
-    coefficients: Tuple[float, float, float, float],  # Simply pass coefficients to function as (k1, k2, k3, k4).
+    coefficients: Tuple[float, float, float, float, float, float, float, float, float],  # Simply pass coefficients to function as (k1, k2, k3, k4).
     u0: float,
+    pn: np.ndarray,
+    vn: np.ndarray,
     un: np.ndarray,
 ) -> np.ndarray:
     """Solver for equation ....
@@ -88,10 +90,18 @@ def solve(
         dt
     D : float
         D
-    coefficients : Tuple[float, float, float, float]
+    coefficients : Tuple[float, float, float, float, float, float, float, float, float]
         Coefficients of ...
     u0 : float
         u0
+    p0 : float
+        p0
+    v0 : float
+        v0
+    pn : np.ndarray
+        pn
+    vn : np.ndarray
+        vn
     un : np.ndarray
         un
 
@@ -100,21 +110,30 @@ def solve(
     np.ndarray
     """
 
-    k3, k4, k5, K = coefficients                     # Unpack tuple.
+    k1, k2, k3, k4, k5, k6, k7, k8, k9 = coefficients                     # Unpack tuple.
 
 
     dx = np.sqrt(D * dt / F)                         # step size in space
     Nx = int(round(L / dx))                          # amount of nodes in space 
 
+    
+    p = np.zeros(Nx + 1)
+    v = np.zeros(Nx + 1)
     u = np.zeros(Nx + 1)                             # current time layer function values
-    b = np.zeros(Nx + 1)                             # right hand side of the linear system
+    bu = np.zeros(Nx + 1)
+    bp = np.zeros(Nx + 1)
+    bv = np.zeros(Nx + 1)                             # right hand side of the linear system
 
     for i in range(0, Nx + 1):
-        b[i] = un[i] - dt * K * un[i] + dt * (k3 * un[i] + k4 * un[i] ** 2 + k5 * un[i] ** 3) * (u0 - un[i])
+        bu[i] = un[i] - dt * k4 * un[i] + dt * (k1 + k2 * vn[i] + k3 * vn[i] ** 2) * (u0 - un[i])
+        bv[i] = vn[i] - dt * k9 * vn[i] + dt * (k5 * un[i] + k6 * vn[i] + k7 * vn[i] ** 2 + k8 * vn[i] ** 3) * pn[i]
+        bp[i] = pn[i] - dt * (k5 * un[i] + k6 * vn[i] + k7 * vn[i] ** 2 + k8 * vn[i] ** 3) * pn[i]
     
-    u = sweep(F, Nx, b)
+    p = sweep(F, Nx, bp)
+    v = sweep(F, Nx, bv)
+    u = sweep(F, Nx, bu)
 
-    return u
+    return p, u, v
 
 
 
@@ -125,23 +144,36 @@ def graph(
     F: float,
     dt: float,
     D: float,
-    coefficients: Tuple[float, float, float, float],  # Simply pass coefficients to function as (k1, k2, k3, k4).
-    u0: float
+    coefficients: Tuple[float, float, float, float, float, float, float, float, float],  # Simply pass coefficients to function as (k1, k2, k3, k4).
+    p0: float,
+    u0: float,
 ):     
     Nt = int(round(T / dt))   
     t = np.linspace(0, T, Nt + 1)
     dx = np.sqrt(D * dt / F)                          # step size in space
     Nx = int(round(L / dx)) 
     x = np.linspace(0, L, Nx + 1)           
-    u = np.zeros(Nx + 1)
+    p = np.zeros(Nx + 1)
+    v = np.zeros(Nx + 1)
+    u = np.zeros(Nx + 1)                             # current time layer function values
+    pn = np.zeros(Nx + 1)
+    vn = np.zeros(Nx + 1)
     un = np.zeros(Nx + 1)
 
     for i in range(0, Nx + 1):
-        un[i] = u0 * initial_data_func(0.1 - x[i])
+        pn[i] = p0
+        vn[i] = p0 * initial_data_func(0.1 - x[i])
+        un[i] = 0
 
     for n in range(0, Nt):                           # You don't use n, replace it by placeholder `_`.
-        u = solve(L, F, dt, D, coefficients, u0, un)
+        p, u, v = solve(L, F, dt, D, coefficients, u0, pn, un, vn)
         un[:] = u
+        vn[:] = v
+        pn[:] = p
+
         
-    plt.plot(u)
+    # plt.plot(p)
+    # plt.plot(u)
+    plt.plot(v)
+    print(dx)
 
