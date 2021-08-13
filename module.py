@@ -109,81 +109,36 @@ def solveSYS1(
 
 
 def solveSYS2(
+    initial_data: Tuple[np.ndarray, ...],
     L: float,
-    F: float,
+    dx: float,
     dt: float,
-    D: float,
-    coefficients: Tuple[float, ...],  # Simply pass coefficients to function as (k1, k2, k3, k4).
-    u0: float,
-    v5n: np.ndarray,
-    v8n: np.ndarray,
-    v9n: np.ndarray,
-    v10n: np.ndarray,
-    v11n: np.ndarray,
-    un: np.ndarray,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Solver for equation ....
-
-    Parameters
-    ----------
-    initial_data_func : Callable[[float], float]
-        Function for generation initial data.
-    L : float
-        L
-    F : float
-        T
-    dt : float
-        dt
-    D : float
-        D
-    coefficients : Tuple[float, ...]
-        Coefficients of ...
-    u0 : float
-        u0
-    p0 : float
-        p0
-    v0 : float
-        v0
-    v5n : np.ndarray
-        v5n
-    v8n : np.ndarray
-        v8n
-    v9n : np.ndarray
-        v9n
-    v10n : np.ndarray
-        v10n
-    v11n : np.ndarray
-        v11n
-    un : np.ndarray
-        un
-
-    Returns
-    -------
-    Tuple[np.ndarray, np.ndarray, np.ndarray]
-    """
-    dx = np.sqrt(D * dt / F)  # step size in space
+    coefficients: Tuple[float, ...],
+) -> Tuple[np.ndarray, ...]:
+    # TODO: Write docs.
+    D, u0, k2, k21, h2, k5, h5, k8, h8, k9, h9, k10, k101, h10, k11, h11 = coefficients
+    un, v5n, v8n, v9n, v10n, v11n = initial_data
+    F = D * dt / dx ** 2
     Nx = int(round(L / dx))  # amount of nodes in space
 
-    # v5, v8, v9, v10, v11, u are current time layer function values
-    # v5n, v8n, v9n, v10n, v11n, un are previous time layer function values
-    v5, v8, v9, v10, v11, u, bv5, bv8, bv9, bv10, bv11, bu = [np.zeros(Nx + 1) for _ in range(12)]
+    u, v5, v8, v9, v10, v11, bu, bv5, bv8, bv9, bv10, bv11 = [np.ndarray(Nx + 1) for _ in range(12)]
 
-    k2, k21, h2, k5, h5, k8, h8, k9, h9, k10, k101, h10, k11, h11 = coefficients  # Unpack tuple.
     for i in range(0, Nx + 1):
-        bu[i] = un[i] - dt * h2 * un[i] + dt * (k2 * v10n[i] + v5n[i] * v10n[i] * k21) * (1 - un[i] / u0)
-        bv5[i] = v5n[i] - dt * h5 * v5n[i] + dt * k5 * un[i]
-        bv8[i] = v8n[i] - dt * h8 * v8n[i] + dt * k8 * un[i]
-        bv9[i] = v9n[i] - dt * h9 * v9n[i] + dt * k9 * v11n[i]
-        bv10[i] = v10n[i] - dt * h10 * v10n[i] + dt * (k10 * v9n[i] + v8n[i] * v9n[i] * k101)
-        bv11[i] = v11n[i] - dt * h11 * v11n[i] + dt * k11 * un[i]
+        bu[i] = un[i] + dt * ((k2 * v10n[i] + k21 * v5n[i] * v10n[i]) * (1.0 - un[i] / u0) - h2 * un[i])
+        bv10[i] = v10n[i] + dt * (k10 * v9n[i] + k101 * v8n[i] * v9n[i] - h10 * v10n[i])
         
+        bv5[i] = v5n[i] + dt * (k5 * un[i] - h5 * v5n[i])
+        bv8[i] = v8n[i] + dt * (k8 * un[i] - h8 * v8n[i])
+        bv9[i] = v9n[i] + dt * (k9 * v11n[i] - h9 * v9n[i])
+        bv11[i] = v11n[i] + dt * (k11 * un[i] - h11 * v11n[i])
 
+    u = sweep(F, Nx, bu)
     v5 = sweep(F, Nx, bv5)
     v8 = sweep(F, Nx, bv8)
     v9 = sweep(F, Nx, bv9)
     v10 = sweep(F, Nx, bv10)
     v11 = sweep(F, Nx, bv11)
-    u = sweep(F, Nx, bu)
+
     return u, v5, v8 ,v9, v10, v11
 
 def graphicsSYS1(
@@ -227,66 +182,6 @@ def graphicsSYS1(
         vn[:] = v
         pn[:] = p
 
-    # plt.plot(p)
-    # plt.plot(u)
-    plt.plot(v)
-    print(dx)
-
-def graphicsSYS2(
-    initial_data_func: Callable[[float], float],
-    T: float,
-    L: float,
-    F: float,
-    dt: float,
-    D: float,
-    coefficients: Tuple[float, ...],
-    u0: float,
-    v50: float,
-    v80: float,
-    v90: float,
-    v100: float,
-    v110: float,
-):
-    Nt = int(round(T / dt))
-    dx = np.sqrt(D * dt / F)  # step size in space
-    Nx = int(round(L / dx))
-    x = np.linspace(0, L, Nx + 1)
-
-    # v5, v8, v9, v10, v11, u are current time layer function values
-    # v5n, v8n, v9n, v10n, v11n, un are previous time layer function values
-    v5, v8, v9, v10, v11, u, v5n, v8n, v9n, v10n, v11n, un = [np.zeros(Nx + 1) for _ in range(12)]
-
-    for i in range(0, Nx + 1):
-        un[i] = u0 * initial_data_func(0.1 - x[i])
-        v5n[i] = v50 * initial_data_func(0.1 - x[i])
-        v8n[i] = v80 * initial_data_func(0.1 - x[i])
-        v9n[i] = v90 * initial_data_func(0.1 - x[i])
-        v10n[i] = v100 * initial_data_func(0.1 - x[i])
-        v11n[i] = v110 * initial_data_func(0.1 - x[i])
-
-    for _ in range(0, Nt):
-        u, v5, v8, v9, v10, v11 = solveSYS2(
-            L=L,
-            F=F,
-            dt=dt,
-            D=D,
-            coefficients=coefficients,
-            u0=u0,
-            v5n=v5n,
-            v8n=v8n,
-            v9n=v9n,
-            v10n=v10n,
-            v11n=v11n,
-            un=un,
-        )
-        un[:] = u
-        v5n[:] = v5
-        v8n[:] = v8
-        v9n[:] = v9
-        v10n[:] = v10
-        v11n[:] = v11
-        
-
     
-    plt.plot(u)
+    plt.plot(v)
     print(dx)
