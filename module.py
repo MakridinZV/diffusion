@@ -43,70 +43,32 @@ def sweep(
 
     u[:] = np.linalg.solve(A, b)
     return u
-
-
+  
 def solveSYS1(
+    initial_data: Tuple[np.ndarray, ...],
     L: float,
-    F: float,
+    dx: float,
     dt: float,
-    D: float,
-    coefficients: Tuple[float, ...],  # Simply pass coefficients to function as (k1, k2, k3, k4).
-    u0: float,
-    pn: np.ndarray,
-    vn: np.ndarray,
-    un: np.ndarray,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Solver for equation ....
-
-    Parameters
-    ----------
-    initial_data_func : Callable[[float], float]
-        Function for generation initial data.
-    L : float
-        L
-    F : float
-        T
-    dt : float
-        dt
-    D : float
-        D
-    coefficients : Tuple[float, ...]
-        Coefficients of ...
-    u0 : float
-        u0
-    p0 : float
-        p0
-    v0 : float
-        v0
-    pn : np.ndarray
-        pn
-    vn : np.ndarray
-        vn
-    un : np.ndarray
-        un
-
-    Returns
-    -------
-    Tuple[np.ndarray, np.ndarray, np.ndarray]
-    """
-    dx = np.sqrt(D * dt / F)  # step size in space
+    coefficients: Tuple[float, ...],
+) -> Tuple[np.ndarray, ...]:
+    # TODO: Write docs.
+    D, u0, k1, k2, k3, k4, k5, k6, k7, k8, k9 = coefficients
+    un, vn, pn = initial_data
+    F = D * dt / dx ** 2
     Nx = int(round(L / dx))  # amount of nodes in space
 
-    # p, v, u are current time layer function values
-    # bp, bv, bu are previous time layer function values
-    p, v, u, bp, bv, bu = [np.zeros(Nx + 1) for _ in range(6)]
+    u, v, p, bu, bv, bp = [np.ndarray(Nx + 1) for _ in range(6)]
 
-    k1, k2, k3, k4, k5, k6, k7, k8, k9 = coefficients  # Unpack tuple.
     for i in range(0, Nx + 1):
         bu[i] = un[i] - dt * k4 * un[i] + dt * (k1 + k2 * vn[i] + k3 * vn[i] ** 2) * (u0 - un[i])
         bv[i] = vn[i] - dt * k9 * vn[i] + dt * (k5 * un[i] + k6 * vn[i] + k7 * vn[i] ** 2 + k8 * vn[i] ** 3) * pn[i]
         bp[i] = pn[i] - dt * (k5 * un[i] + k6 * vn[i] + k7 * vn[i] ** 2 + k8 * vn[i] ** 3) * pn[i]
 
-    p = sweep(F, Nx, bp)
-    v = sweep(F, Nx, bv)
     u = sweep(F, Nx, bu)
-    return p, u, v
-
+    v = sweep(F, Nx, bv)
+    p = sweep(F, Nx, bp)
+    
+    return u, v, p
 
 def solveSYS2(
     initial_data: Tuple[np.ndarray, ...],
